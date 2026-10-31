@@ -1,0 +1,95 @@
+import 'package:flutter/material.dart';
+
+import 'pages/home_page.dart';
+import 'pages/mistakes_page.dart';
+import 'pages/sessions_page.dart';
+import 'pages/settings_page.dart';
+import 'pages/vocab_page.dart';
+import 'services/app_state.dart';
+import 'services/storage_service.dart';
+
+class MilaApp extends StatelessWidget {
+  const MilaApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'mila',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(colorSchemeSeed: const Color(0xFF2D4FD6), useMaterial3: true),
+      home: const RootPage(),
+    );
+  }
+}
+
+/// Το κέλυφος με τις τέσσερις καρτέλες και το κουμπί ρυθμίσεων.
+class RootPage extends StatefulWidget {
+  const RootPage({super.key});
+
+  @override
+  State<RootPage> createState() => _RootPageState();
+}
+
+class _RootPageState extends State<RootPage> {
+  final AppState _state = AppState(StorageService());
+  int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _state.load();
+  }
+
+  @override
+  void dispose() {
+    _state.stopSession();
+    _state.dispose();
+    super.dispose();
+  }
+
+  void _openSettings() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => SettingsPage(state: _state)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('mila'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.settings),
+                tooltip: 'Ρυθμίσεις',
+                onPressed: _openSettings,
+              ),
+            ],
+          ),
+          body: IndexedStack(
+            index: _index,
+            children: [
+              HomePage(state: _state),
+              MistakesPage(state: _state),
+              VocabPage(state: _state),
+              SessionsPage(state: _state),
+            ],
+          ),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _index,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            destinations: const [
+              NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Συνομιλία'),
+              NavigationDestination(icon: Icon(Icons.error_outline), label: 'Λάθη'),
+              NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Λεξιλόγιο'),
+              NavigationDestination(icon: Icon(Icons.history), label: 'Συνομιλίες'),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
