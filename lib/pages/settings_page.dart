@@ -78,6 +78,15 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            secondary: const Icon(Icons.dark_mode_outlined),
+            title: const Text('Σκούρο θέμα'),
+            subtitle: const Text('Ενεργοποίηση dark mode'),
+            value: s.darkMode,
+            onChanged: (value) => _change(() => s.darkMode = value),
+          ),
+          const SizedBox(height: 8),
           TextField(
             controller: _key,
             decoration: const InputDecoration(

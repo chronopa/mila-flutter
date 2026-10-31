@@ -8,7 +8,11 @@ class PcmPlayer {
 
   Future<void> play(Uint8List pcm) async {
     if (!_ready) {
-      await FlutterPcmSound.setup(sampleRate: 24000, channelCount: 1);
+      await FlutterPcmSound.setup(
+        sampleRate: 24000,
+        channelCount: 1,
+        iosAudioCategory: IosAudioCategory.playAndRecord,
+      );
       _ready = true;
     }
     await FlutterPcmSound.feed(PcmArrayInt16.fromList(_toSamples(pcm)));

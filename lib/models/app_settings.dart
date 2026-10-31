@@ -9,6 +9,7 @@ class AppSettings {
     this.difficulty = 'normal',
     this.liveVoice = 'Kore',
     this.hideAi = false,
+    this.darkMode = false,
     this.goal = 15,
     this.focusGrammar = true,
     this.focusVocabulary = true,
@@ -22,6 +23,7 @@ class AppSettings {
   String difficulty; // 'easy', 'normal' ή 'hard'
   String liveVoice;
   bool hideAi;
+  bool darkMode;
   int goal;
   bool focusGrammar;
   bool focusVocabulary;
@@ -35,6 +37,7 @@ class AppSettings {
         difficulty: pick(j['difficulty'], 'normal'),
         liveVoice: pick(j['liveVoice'], 'Kore'),
         hideAi: pick(j['hideAi'], false),
+        darkMode: pick(j['darkMode'], false),
         goal: pick(j['goal'], 15),
         focusGrammar: pick(j['focusGrammar'], true),
         focusVocabulary: pick(j['focusVocabulary'], true),
@@ -49,6 +52,7 @@ class AppSettings {
         'difficulty': difficulty,
         'liveVoice': liveVoice,
         'hideAi': hideAi,
+        'darkMode': darkMode,
         'goal': goal,
         'focusGrammar': focusGrammar,
         'focusVocabulary': focusVocabulary,
