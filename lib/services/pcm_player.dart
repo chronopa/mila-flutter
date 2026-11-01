@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter_pcm_sound/flutter_pcm_sound.dart';
 
 /// Παίζει ήχο PCM 16-bit, 24 kHz, όπως τον στέλνει το Gemini.
@@ -12,6 +13,16 @@ class PcmPlayer {
         sampleRate: 24000,
         channelCount: 1,
         iosAudioCategory: IosAudioCategory.playAndRecord,
+      );
+      final audioSession = await AudioSession.instance;
+      await audioSession.configure(
+        AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+          avAudioSessionCategoryOptions:
+              AVAudioSessionCategoryOptions.defaultToSpeaker |
+                  AVAudioSessionCategoryOptions.allowBluetooth,
+          avAudioSessionMode: AVAudioSessionMode.defaultMode,
+        ),
       );
       _ready = true;
     }
