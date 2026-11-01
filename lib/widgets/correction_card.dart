@@ -4,9 +4,10 @@ import '../models/analysis.dart';
 
 /// Οι διορθώσεις της φράσης σου, κάτω από τη φυσαλίδα σου.
 class CorrectionCard extends StatelessWidget {
-  const CorrectionCard({super.key, required this.analysis});
+  const CorrectionCard({super.key, required this.analysis, required this.onSpeak});
 
   final Analysis analysis;
+  final void Function(String text) onSpeak;
 
   @override
   Widget build(BuildContext context) {
@@ -33,21 +34,32 @@ class CorrectionCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(text: '${c.type}  ', style: theme.textTheme.labelSmall),
-                          TextSpan(
-                            text: c.said,
-                            style: const TextStyle(decoration: TextDecoration.lineThrough),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text.rich(
+                            TextSpan(
+                              children: [
+                                TextSpan(text: '${c.type}  ', style: theme.textTheme.labelSmall),
+                                TextSpan(
+                                  text: c.said,
+                                  style: const TextStyle(decoration: TextDecoration.lineThrough),
+                                ),
+                                const TextSpan(text: ' → '),
+                                TextSpan(
+                                  text: c.better,
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ),
-                          const TextSpan(text: ' → '),
-                          TextSpan(
-                            text: c.better,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          tooltip: 'Άκουσε την αγγλική διόρθωση',
+                          icon: const Icon(Icons.volume_up),
+                          onPressed: c.better.trim().isEmpty ? null : () => onSpeak(c.better),
+                        ),
+                      ],
                     ),
                     if (c.why.isNotEmpty) Text(c.why, style: theme.textTheme.bodySmall),
                   ],

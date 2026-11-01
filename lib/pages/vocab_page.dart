@@ -16,7 +16,7 @@ class VocabPage extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            'Άδειο ακόμα.\nΠάτα το ＋ κάτω από μια απάντηση του AI για να αποθηκεύσεις λέξη.',
+            'Άδειο ακόμα.\nΠάτα το ＋ κάτω από μια απάντηση του AI για να αποθηκεύσεις αγγλική λέξη, ελληνική μετάφραση και παράδειγμα.',
             textAlign: TextAlign.center,
           ),
         ),
@@ -28,10 +28,18 @@ class VocabPage extends StatelessWidget {
       itemBuilder: (context, index) {
         final position = items.length - 1 - index;
         final item = items[position];
+        // Older AI suggestions may have returned the English and Greek fields
+        // in reverse order. Detect Greek script and display those entries correctly.
+        final swapped = _containsGreek(item.phrase) && !_containsGreek(item.meaning);
+        final englishPhrase = swapped ? item.meaning : item.phrase;
+        final greekMeaning = swapped ? item.phrase : item.meaning;
         return ListTile(
-          title: Text(item.phrase),
+          title: Text(englishPhrase),
           subtitle: Text(
-            [item.meaning, item.example].where((t) => t.isNotEmpty).join('\n'),
+            [
+              if (greekMeaning.isNotEmpty) 'Μετάφραση: $greekMeaning',
+              if (item.example.isNotEmpty) 'Παράδειγμα: ${item.example}',
+            ].join('\n'),
           ),
           isThreeLine: item.example.isNotEmpty,
           trailing: Row(
@@ -39,8 +47,8 @@ class VocabPage extends StatelessWidget {
             children: [
               IconButton(
                 icon: const Icon(Icons.volume_up),
-                tooltip: 'Άκουσε',
-                onPressed: () => state.speak(item.phrase),
+                tooltip: 'Άκουσε την αγγλική λέξη ή φράση',
+                onPressed: () => state.speak(englishPhrase),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
@@ -53,3 +61,5 @@ class VocabPage extends StatelessWidget {
     );
   }
 }
+
+bool _containsGreek(String text) => RegExp(r'[\u0370-\u03FF\u1F00-\u1FFF]').hasMatch(text);

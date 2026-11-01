@@ -36,7 +36,8 @@ class AppState extends ChangeNotifier {
   ChatMessage? _userMsg; // η φράση σου που γράφεται τώρα
   ChatMessage? _aiMsg; // η απάντηση του AI που γράφεται τώρα
   bool _aiHadAudio = false;
-  DateTime _lastHeard = DateTime.now();
+  bool _startTalkingWhenReady = false;
+  final Map<ChatMessage, Timer> _userTurnTimers = {};
 
   int get todayCount => data.daily[dayKey(DateTime.now())] ?? 0;
 
@@ -81,12 +82,17 @@ class AppState extends ChangeNotifier {
 
   // ---------- συνεδρία ----------
 
-  Future<void> startSession({Scenario? chosen, String custom = ''}) async {
+  Future<void> startSession({
+    Scenario? chosen,
+    String custom = '',
+    bool startTalkingWhenReady = false,
+  }) async {
     if (data.settings.geminiKey.trim().isEmpty) {
       _setNotice('Βάλε πρώτα το κλειδί Gemini στις Ρυθμίσεις');
       return;
     }
     stopSession();
+    _startTalkingWhenReady = startTalkingWhenReady;
     scenario = chosen ?? scenario;
     customScenario = custom;
     messages.clear();
@@ -120,6 +126,7 @@ class AppState extends ChangeNotifier {
 
   /// Τελειώνει την τρέχουσα συνεδρία.
   void stopSession() {
+    _startTalkingWhenReady = false;
     final live = _live;
     _live = null;
     if (live != null) unawaited(live.close());
@@ -127,6 +134,11 @@ class AppState extends ChangeNotifier {
     _userMsg = null;
     _aiMsg = null;
     _aiHadAudio = false;
+    for (final timer in _userTurnTimers.values) {
+      timer.cancel();
+    }
+    _userTurnTimers.clear();
+    messages.clear();
     talkState = TalkState.idle;
     notifyListeners();
   }
@@ -139,8 +151,14 @@ class AppState extends ChangeNotifier {
 
   void _onReady() {
     talkState = TalkState.listening;
-    _live?.sendText('[START]');
     notifyListeners();
+    _live?.sendText(
+      'Start the conversation now. Briefly welcome the learner into this scenario, then ask exactly one short, natural opening question directly related to it: ${_scenarioPrompt()}',
+    );
+    if (_startTalkingWhenReady && _live != null) {
+      _startTalkingWhenReady = false;
+      _beginTalk(_live!);
+    }
   }
 
   void _onClosed(String details) {
@@ -148,7 +166,8 @@ class AppState extends ChangeNotifier {
     _live = null;
     talkState = TalkState.idle;
     final reason = details.isEmpty ? '' : ' ($details)';
-    _setNotice('Η σύνδεση έκλεισε$reason. Πάτα το μικρόφωνο για νέα συνεδρία.');
+    messages.clear();
+    _setNotice('Η σύνδεση έκλεισε$reason. Επίλεξε θέμα για νέα συνομιλία.');
   }
 
   // ---------- μιλάς ----------
@@ -157,7 +176,7 @@ class AppState extends ChangeNotifier {
   void toggleTalk() {
     final live = _live;
     if (live == null) {
-      unawaited(startSession());
+      unawaited(startSession(startTalkingWhenReady: true));
       return;
     }
     if (talkState == TalkState.connecting) return;
@@ -169,6 +188,14 @@ class AppState extends ChangeNotifier {
   }
 
   void _beginTalk(LiveSession live) {
+    for (final timer in _userTurnTimers.values) {
+      timer.cancel();
+    }
+    _userTurnTimers.clear();
+    for (final timer in _userTurnTimers.values) {
+      timer.cancel();
+    }
+    _userTurnTimers.clear();
     unawaited(_finishAiTurn());
     unawaited(_player.stop());
     _userMsg = null;
@@ -180,43 +207,43 @@ class AppState extends ChangeNotifier {
   void _sendTalk(LiveSession live) {
     live.stopTalking();
     talkState = TalkState.listening;
-    _lastHeard = DateTime.now();
     notifyListeners();
-    unawaited(_reviewUserMessage(_userMsg));
+    // Finalize any phrase that has not already ended during a natural pause.
+    final msg = _userMsg;
+    if (msg != null) _finalizeUserTurn(msg);
   }
 
-  /// Περιμένει να ολοκληρωθεί η μεταγραφή της φράσης και μετά τη διορθώνει.
-  Future<void> _reviewUserMessage(ChatMessage? msg) async {
-    final started = DateTime.now();
-    while (true) {
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-      final hasText = msg != null && msg.text.trim().isNotEmpty;
-      final quiet = DateTime.now().difference(_lastHeard) > const Duration(milliseconds: 700);
-      final timedOut = DateTime.now().difference(started) > const Duration(seconds: 4);
-      if ((hasText && quiet) || timedOut) break;
-    }
-    if (_userMsg == msg) _userMsg = null;
+  void _scheduleUserTurn(ChatMessage msg) {
+    _userTurnTimers.remove(msg)?.cancel();
+    // inputTranscription arrives at the end of a detected speech segment.
+    // Keep the message open briefly in case the learner continues speaking.
+    _userTurnTimers[msg] = Timer(const Duration(milliseconds: 900), () {
+      _finalizeUserTurn(msg);
+    });
+  }
 
-    if (msg == null || msg.text.trim().isEmpty) {
-      if (msg != null) {
-        messages.remove(msg);
-        notifyListeners();
-      }
+  void _finalizeUserTurn(ChatMessage msg) {
+    _userTurnTimers.remove(msg)?.cancel();
+    if (_userMsg == msg) _userMsg = null;
+    final text = msg.text.trim();
+    if (text.isEmpty) {
+      messages.remove(msg);
+      notifyListeners();
       return;
     }
+    if (msg.analysis != null) return;
     _countPhrase();
-    try {
-      final analysis = await _analyze(msg.text.trim());
+    _analyze(text).then((analysis) {
       msg.analysis = analysis;
       if (analysis == null) {
         _setNotice('Δεν βγήκε ανάλυση, δοκίμασε ξανά.');
       } else {
         _addMistakes(analysis);
       }
-    } catch (error) {
+      notifyListeners();
+    }).catchError((Object error) {
       _setNotice('Οι διορθώσεις απέτυχαν: $error');
-    }
-    notifyListeners();
+    });
   }
 
   /// Γραπτό μήνυμα μέσα στη συνεδρία.
@@ -250,7 +277,7 @@ class AppState extends ChangeNotifier {
       messages.add(msg);
     }
     msg.text += text;
-    _lastHeard = DateTime.now();
+    _scheduleUserTurn(msg);
     notifyListeners();
   }
 

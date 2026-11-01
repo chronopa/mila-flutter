@@ -51,6 +51,7 @@ class LiveSession {
   StreamSubscription<Uint8List>? _micSub;
   bool _talking = false;
   bool _closed = false;
+  bool _micStarted = false;
 
   Future<void> connect() async {
     final channel = WebSocketChannel.connect(
@@ -84,10 +85,6 @@ class LiveSession {
             },
           },
         },
-        // Χωρίς αυτόματη ανίχνευση: πατάς το κουμπί για να μιλήσεις και ξαναπατάς για αποστολή.
-        'realtimeInputConfig': {
-          'automaticActivityDetection': {'disabled': true},
-        },
         'systemInstruction': {
           'parts': [
             {'text': systemPrompt}
@@ -95,21 +92,27 @@ class LiveSession {
         },
         'inputAudioTranscription': {},
         'outputAudioTranscription': {},
+        // Keep the mic stream open; let the Live API detect individual speech
+        // turns during natural pauses instead of batching the whole recording.
+        'realtimeInputConfig': {
+          'automaticActivityDetection': {
+            'disabled': false,
+            'silenceDurationMs': 600,
+          },
+        },
       },
     });
   }
 
   void startTalking() {
+    if (_closed) return;
     _talking = true;
-    _send({
-      'realtimeInput': {'activityStart': {}},
-    });
   }
 
   void stopTalking() {
     _talking = false;
     _send({
-      'realtimeInput': {'activityEnd': {}},
+      'realtimeInput': {'audioStreamEnd': true},
     });
   }
 
@@ -148,6 +151,7 @@ class LiveSession {
   }
 
   Future<void> _startMic() async {
+    if (_micStarted || _closed) return;
     try {
       if (!await _recorder.hasPermission()) {
         events.onError('Δεν έχω άδεια μικροφώνου');
@@ -156,6 +160,7 @@ class LiveSession {
       final stream = await _recorder.startStream(
         const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1),
       );
+      _micStarted = true;
       _micSub = stream.listen(_onMic);
     } catch (error) {
       events.onError('Το μικρόφωνο δεν ξεκίνησε: $error');
@@ -163,7 +168,7 @@ class LiveSession {
   }
 
   void _onMic(Uint8List chunk) {
-    if (!_talking) return;
+    if (!_talking || _closed) return;
     _send({
       'realtimeInput': {
         'audio': {'data': base64Encode(chunk), 'mimeType': 'audio/pcm;rate=16000'},
@@ -172,6 +177,7 @@ class LiveSession {
   }
 
   Future<void> _onMessage(dynamic raw) async {
+    if (_closed) return;
     final text = raw is String ? raw : utf8.decode(raw as List<int>);
     final message = jsonDecode(text) as Map<String, dynamic>;
 

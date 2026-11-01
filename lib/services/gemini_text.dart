@@ -49,7 +49,12 @@ class GeminiText {
       'contents': [
         {
           'parts': [
-            {'text': text}
+            {
+              'text': text,
+              'speechMetadata': {
+                'style': 'Speak the provided English text clearly and naturally in English. Read it exactly as written; do not translate or explain it.',
+              },
+            }
           ]
         }
       ],
@@ -64,7 +69,26 @@ class GeminiText {
     });
     final encoded = _firstPart(data, (part) => (part['inlineData'] as Map?)?['data'] as String?);
     if (encoded == null) throw GeminiException('Δεν ήρθε ήχος από το Gemini');
-    return base64Decode(encoded);
+    final audio = base64Decode(encoded);
+    // Gemini 3.8 unary TTS returns a WAV container by default; the live
+    // player expects headerless PCM. Strip the RIFF chunks when present.
+    if (audio.length >= 12 &&
+        String.fromCharCodes(audio.sublist(0, 4)) == 'RIFF' &&
+        String.fromCharCodes(audio.sublist(8, 12)) == 'WAVE') {
+      var offset = 12;
+      while (offset + 8 <= audio.length) {
+        final id = String.fromCharCodes(audio.sublist(offset, offset + 4));
+        final size = ByteData.sublistView(audio, offset + 4, offset + 8)
+            .getUint32(0, Endian.little);
+        final start = offset + 8;
+        final end = start + size;
+        if (end > audio.length) break;
+        if (id == 'data') return Uint8List.sublistView(audio, start, end);
+        offset = end + (size.isOdd ? 1 : 0);
+      }
+      throw GeminiException('Το WAV που επέστρεψε το Gemini δεν περιέχει έγκυρο PCM');
+    }
+    return audio;
   }
 
   Future<Map<String, dynamic>> _post(String url, Map<String, dynamic> body) async {

@@ -54,5 +54,5 @@ String analysisPrompt(AppSettings s) {
 
 /// Οδηγίες για λέξεις από την απάντηση του AI.
 String wordsPrompt(String level) {
-  return 'You pick vocabulary for an English learner at CEFR $level. From the English text the user sends, choose up to 2 useful words or expressions the learner may not know. Reply ONLY with JSON: {"new_words":[{"phrase":"...","el":"short Greek meaning","example":"short example sentence"}]}. If nothing is worth learning, reply {"new_words":[]}.';
+  return 'You pick vocabulary for an English learner at CEFR $level. From the English text provided, choose up to 2 useful English words or expressions the learner may not know. The phrase field MUST contain the English word or expression exactly as it appears in the source, never its Greek translation. The el field MUST contain only its short Greek translation. The example MUST be a natural English sentence containing the phrase exactly. Reply ONLY with JSON: {"new_words":[{"phrase":"...","el":"short Greek meaning","example":"short example sentence"}]}. If nothing is worth learning, reply {"new_words":[]}.';
 }
