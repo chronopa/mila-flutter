@@ -23,7 +23,12 @@ class GeminiText {
   final String apiKey;
 
   /// Στέλνει ένα αίτημα κειμένου και επιστρέφει την απάντηση ως κείμενο.
-  Future<String> ask({required String system, required String user, int maxTokens = 600}) async {
+  Future<String> ask({
+    required String system,
+    required String user,
+    int maxTokens = 600,
+    Map<String, dynamic>? responseSchema,
+  }) async {
     final data = await _post('$geminiBase/models/$textModel:generateContent', {
       'systemInstruction': {
         'parts': [
@@ -38,21 +43,44 @@ class GeminiText {
           ]
         }
       ],
-      'generationConfig': {'maxOutputTokens': maxTokens, 'responseMimeType': 'application/json'},
+      'generationConfig': {
+        'maxOutputTokens': maxTokens,
+        if (responseSchema == null)
+          'responseMimeType': 'application/json'
+        else
+          'responseFormat': {
+            'text': {
+              'mimeType': 'APPLICATION_JSON',
+              'schema': responseSchema,
+            },
+          },
+      },
     });
-    return _firstPart(data, (part) => part['text'] as String?) ?? '';
+    final answer = _firstPart(data, (part) => part['text'] as String?);
+    if (answer == null || answer.trim().isEmpty) {
+      final feedback = data['promptFeedback'];
+      final reason = feedback is Map ? feedback['blockReason'] : null;
+      throw GeminiException(
+        reason is String
+            ? 'Το αίτημα αποκλείστηκε από το Gemini ($reason)'
+            : 'Το Gemini δεν επέστρεψε απάντηση κειμένου',
+      );
+    }
+    return answer;
   }
 
   /// Μετατρέπει κείμενο σε ήχο PCM 16-bit, 24 kHz.
   Future<Uint8List> speech(String text, String voice) async {
-    final data = await _post('$geminiBase/models/$speechModel:generateContent', {
+    final data =
+        await _post('$geminiBase/models/$speechModel:generateContent', {
       'contents': [
         {
           'parts': [
             {
               'text': text,
               'speechMetadata': {
-                'style': 'Speak the provided English text clearly and naturally in English. Read it exactly as written; do not translate or explain it.',
+                'style':
+                    'Speak the provided English text clearly and naturally in English. Read it exactly as written; do not translate or explain it.',
               },
             }
           ]
@@ -67,7 +95,8 @@ class GeminiText {
         }
       },
     });
-    final encoded = _firstPart(data, (part) => (part['inlineData'] as Map?)?['data'] as String?);
+    final encoded = _firstPart(
+        data, (part) => (part['inlineData'] as Map?)?['data'] as String?);
     if (encoded == null) throw GeminiException('Δεν ήρθε ήχος από το Gemini');
     final audio = base64Decode(encoded);
     // Gemini 3.8 unary TTS returns a WAV container by default; the live
@@ -86,16 +115,21 @@ class GeminiText {
         if (id == 'data') return Uint8List.sublistView(audio, start, end);
         offset = end + (size.isOdd ? 1 : 0);
       }
-      throw GeminiException('Το WAV που επέστρεψε το Gemini δεν περιέχει έγκυρο PCM');
+      throw GeminiException(
+          'Το WAV που επέστρεψε το Gemini δεν περιέχει έγκυρο PCM');
     }
     return audio;
   }
 
-  Future<Map<String, dynamic>> _post(String url, Map<String, dynamic> body) async {
+  Future<Map<String, dynamic>> _post(
+      String url, Map<String, dynamic> body) async {
     final response = await http
         .post(
           Uri.parse(url),
-          headers: {'Content-Type': 'application/json', 'x-goog-api-key': apiKey},
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
+          },
           body: jsonEncode(body),
         )
         .timeout(const Duration(seconds: 40));
@@ -103,13 +137,15 @@ class GeminiText {
     if (response.statusCode != 200) {
       final error = data['error'];
       final message = error is Map<String, dynamic> ? error['message'] : null;
-      throw GeminiException(message is String ? message : 'HTTP ${response.statusCode}');
+      throw GeminiException(
+          message is String ? message : 'HTTP ${response.statusCode}');
     }
     return data;
   }
 
   /// Βρίσκει το πρώτο τμήμα της απάντησης για το οποίο το [pick] επιστρέφει τιμή.
-  String? _firstPart(Map<String, dynamic> data, String? Function(Map<String, dynamic> part) pick) {
+  String? _firstPart(Map<String, dynamic> data,
+      String? Function(Map<String, dynamic> part) pick) {
     final candidates = data['candidates'];
     if (candidates is! List || candidates.isEmpty) return null;
     final content = (candidates.first as Map<String, dynamic>)['content'];

@@ -320,11 +320,7 @@ class AppState extends ChangeNotifier {
     _countPhrase();
     _analyze(text).then((analysis) {
       msg.analysis = analysis;
-      if (analysis == null) {
-        _setNotice('Δεν βγήκε ανάλυση, δοκίμασε ξανά.');
-      } else {
-        _addMistakes(analysis);
-      }
+      _addMistakes(analysis);
       _scheduleConversationSave();
       notifyListeners();
     }).catchError((Object error) {
@@ -349,7 +345,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     _analyze(trimmed).then((analysis) {
       msg.analysis = analysis;
-      if (analysis != null) _addMistakes(analysis);
+      _addMistakes(analysis);
       notifyListeners();
     }).catchError((Object error) {
       _setNotice('Οι διορθώσεις απέτυχαν: $error');
@@ -441,13 +437,37 @@ class AppState extends ChangeNotifier {
 
   GeminiText _gemini() => GeminiText(data.settings.geminiKey.trim());
 
-  Future<Analysis?> _analyze(String text) async {
+  Future<Analysis> _analyze(String text) async {
     final raw = await _gemini().ask(
       system: analysisPrompt(data.settings),
       user: 'Learner\'s message: "$text"',
+      responseSchema: {
+        'type': 'object',
+        'properties': {
+          'corrections': {
+            'type': 'array',
+            'items': {
+              'type': 'object',
+              'properties': {
+                'said': {'type': 'string'},
+                'better': {'type': 'string'},
+                'type': {'type': 'string'},
+                'why': {'type': 'string'},
+              },
+              'required': ['said', 'better', 'type', 'why'],
+            },
+          },
+          'natural_version': {'type': 'string'},
+        },
+        'required': ['corrections', 'natural_version'],
+      },
     );
     final json = extractJson(raw);
-    return json == null ? null : Analysis.fromJson(json);
+    if (json == null) {
+      throw GeminiException(
+          'Η απάντηση της ανάλυσης δεν ήταν έγκυρη. Δοκίμασε ξανά.');
+    }
+    return Analysis.fromJson(json);
   }
 
   void _countPhrase() {

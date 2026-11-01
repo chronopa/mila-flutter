@@ -7,7 +7,9 @@ String replyPrompt(AppSettings s, String scenarioPrompt) {
     s.interests.isNotEmpty
         ? "Learner's interests and context: ${s.interests}. Steer the conversation toward these naturally."
         : 'Pick friendly everyday topics.',
-    scenarioPrompt.isNotEmpty ? 'SCENARIO: $scenarioPrompt Stay in character.' : '',
+    scenarioPrompt.isNotEmpty
+        ? 'SCENARIO: $scenarioPrompt Stay in character.'
+        : '',
     _difficultyNote(s.difficulty),
     'Rules: reply in 1-3 short spoken sentences with natural contractions. React to what they actually said (a brief interjection like "Oh nice" or "Hmm, I see" is fine), then usually ask one follow-up question or invite them to continue. Plain text only: no markdown, lists, emojis or JSON. Never point out grammar or vocabulary mistakes, because a separate system handles corrections. The learner\'s words come from speech-to-text, so if something is unclear, ask naturally to repeat or rephrase.',
   ].where((line) => line.isNotEmpty).join('\n');
@@ -48,7 +50,8 @@ String analysisPrompt(AppSettings s) {
     'Correction focus: ${focus.isEmpty ? 'grammar' : focus}. Flag at most 3 issues, most important first. If the message is fine, return an empty list. Do not nitpick phrasing that is already natural.',
     if (s.difficulty == 'easy') 'Flag only the single most important issue.',
     'Reply with ONLY a JSON object, no markdown, in this shape:',
-    '{"corrections": [{"said": "exact fragment the learner said", "better": "corrected fragment", "type": "grammar|vocabulary|natural", "why": "one short explanation in $explainIn"}], "natural_version": "the learner\'s whole message as a native speaker would say it, or empty string if there are no corrections"}',
+    'Always fill natural_version with the whole message phrased as a natural native English speaker would say it, even if the original is already correct (in that case, repeat it unchanged). Keep the meaning. In corrections, include only real errors and explain them in $explainIn.',
+    '{"corrections": [{"said": "exact fragment the learner said", "better": "corrected English fragment", "type": "grammar|vocabulary|natural", "why": "one short explanation in $explainIn"}], "natural_version": "whole message in natural native English"}',
   ].join('\n');
 }
 

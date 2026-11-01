@@ -4,7 +4,8 @@ import '../models/analysis.dart';
 
 /// Οι διορθώσεις της φράσης σου, κάτω από τη φυσαλίδα σου.
 class CorrectionCard extends StatelessWidget {
-  const CorrectionCard({super.key, required this.analysis, required this.onSpeak});
+  const CorrectionCard(
+      {super.key, required this.analysis, required this.onSpeak});
 
   final Analysis analysis;
   final void Function(String text) onSpeak;
@@ -13,11 +14,23 @@ class CorrectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     if (analysis.corrections.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Text(
-          '✓ Ακούστηκε σωστά και φυσικά',
-          style: TextStyle(color: Colors.green.shade700),
+      return Card(
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '✓ Χωρίς λάθη',
+                style: TextStyle(color: Colors.green.shade700),
+              ),
+              if (analysis.natural.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text('Φυσικά θα το έλεγες: ${analysis.natural}'),
+              ],
+            ],
+          ),
         ),
       );
     }
@@ -40,15 +53,19 @@ class CorrectionCard extends StatelessWidget {
                           child: Text.rich(
                             TextSpan(
                               children: [
-                                TextSpan(text: '${c.type}  ', style: theme.textTheme.labelSmall),
+                                TextSpan(
+                                    text: '${c.type}  ',
+                                    style: theme.textTheme.labelSmall),
                                 TextSpan(
                                   text: c.said,
-                                  style: const TextStyle(decoration: TextDecoration.lineThrough),
+                                  style: const TextStyle(
+                                      decoration: TextDecoration.lineThrough),
                                 ),
                                 const TextSpan(text: ' → '),
                                 TextSpan(
                                   text: c.better,
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -57,11 +74,14 @@ class CorrectionCard extends StatelessWidget {
                         IconButton(
                           tooltip: 'Άκουσε την αγγλική διόρθωση',
                           icon: const Icon(Icons.volume_up),
-                          onPressed: c.better.trim().isEmpty ? null : () => onSpeak(c.better),
+                          onPressed: c.better.trim().isEmpty
+                              ? null
+                              : () => onSpeak(c.better),
                         ),
                       ],
                     ),
-                    if (c.why.isNotEmpty) Text(c.why, style: theme.textTheme.bodySmall),
+                    if (c.why.isNotEmpty)
+                      Text(c.why, style: theme.textTheme.bodySmall),
                   ],
                 ),
               ),
