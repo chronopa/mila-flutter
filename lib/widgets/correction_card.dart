@@ -25,10 +25,6 @@ class CorrectionCard extends StatelessWidget {
                 '✓ Χωρίς λάθη',
                 style: TextStyle(color: Colors.green.shade700),
               ),
-              if (analysis.natural.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text('Φυσικά θα το έλεγες: ${analysis.natural}'),
-              ],
             ],
           ),
         ),

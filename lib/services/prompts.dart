@@ -50,8 +50,8 @@ String analysisPrompt(AppSettings s) {
     'Correction focus: ${focus.isEmpty ? 'grammar' : focus}. Flag at most 3 issues, most important first. If the message is fine, return an empty list. Do not nitpick phrasing that is already natural.',
     if (s.difficulty == 'easy') 'Flag only the single most important issue.',
     'Reply with ONLY a JSON object, no markdown, in this shape:',
-    'Always fill natural_version with the whole message phrased as a natural native English speaker would say it, even if the original is already correct (in that case, repeat it unchanged). Keep the meaning. In corrections, include only real errors and explain them in $explainIn.',
-    '{"corrections": [{"said": "exact fragment the learner said", "better": "corrected English fragment", "type": "grammar|vocabulary|natural", "why": "one short explanation in $explainIn"}], "natural_version": "whole message in natural native English"}',
+    'If there is at least one genuine correction, fill natural_version with the whole message phrased naturally as a native English speaker would say it, keeping the original meaning. If there are no corrections, set natural_version to an empty string. In corrections, include only real errors and explain them in $explainIn.',
+    '{"corrections": [{"said": "exact fragment the learner said", "better": "corrected English fragment", "type": "grammar|vocabulary|natural", "why": "one short explanation in $explainIn"}], "natural_version": "natural full message if corrections exist; otherwise empty string"}',
   ].join('\n');
 }
 
