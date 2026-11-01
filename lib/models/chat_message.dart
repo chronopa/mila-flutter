@@ -12,8 +12,27 @@ class ChatMessage {
 
   bool get isUser => role == 'user';
 
-  Map<String, dynamic> toJson() => {'role': role, 'text': text};
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'text': text,
+        if (analysis != null) 'analysis': analysis!.toJson(),
+        'words': words.map((word) => word.toJson()).toList(),
+      };
 
-  factory ChatMessage.fromJson(Map<String, dynamic> j) =>
-      ChatMessage(role: jsonString(j['role']), text: jsonString(j['text']));
+  factory ChatMessage.fromJson(Map<String, dynamic> j) {
+    final message =
+        ChatMessage(role: jsonString(j['role']), text: jsonString(j['text']));
+    final rawAnalysis = j['analysis'];
+    if (rawAnalysis is Map<String, dynamic>) {
+      message.analysis = Analysis.fromJson(rawAnalysis);
+    }
+    final rawWords = j['words'];
+    if (rawWords is List) {
+      message.words = rawWords
+          .whereType<Map<String, dynamic>>()
+          .map(WordSuggestion.fromJson)
+          .toList();
+    }
+    return message;
+  }
 }

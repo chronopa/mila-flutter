@@ -31,7 +31,7 @@ class PcmPlayer {
           avAudioSessionCategoryOptions:
               AVAudioSessionCategoryOptions.defaultToSpeaker |
                   AVAudioSessionCategoryOptions.allowBluetooth,
-          avAudioSessionMode: AVAudioSessionMode.defaultMode,
+          avAudioSessionMode: AVAudioSessionMode.voiceChat,
         ),
       );
       _ready = true;
@@ -49,6 +49,7 @@ class PcmPlayer {
 
   List<int> _toSamples(Uint8List bytes) {
     final view = ByteData.sublistView(bytes);
-    return List<int>.generate(bytes.length ~/ 2, (i) => view.getInt16(i * 2, Endian.little));
+    return List<int>.generate(
+        bytes.length ~/ 2, (i) => view.getInt16(i * 2, Endian.little));
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-
 import '../scenarios.dart';
 import '../services/app_state.dart';
 import '../widgets/correction_card.dart';
@@ -26,7 +25,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _send() {
-    if (widget.state.talkState != TalkState.listening || _input.text.trim().isEmpty) return;
+    if (widget.state.talkState != TalkState.listening ||
+        _input.text.trim().isEmpty) {
+      return;
+    }
     widget.state.sendTyped(_input.text);
     _input.clear();
   }
@@ -44,10 +46,13 @@ class _HomePageState extends State<HomePage> {
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'π.χ. συνέντευξη για barista'),
+          decoration:
+              const InputDecoration(hintText: 'π.χ. συνέντευξη για barista'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Άκυρο')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Άκυρο')),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Ξεκίνα'),
@@ -67,7 +72,8 @@ class _HomePageState extends State<HomePage> {
     return Column(
       children: [
         if (!ended) _StatusBar(state: state, onChoose: _chooseScenario),
-        if (state.notice.isNotEmpty) _NoticeBar(text: state.notice, onClose: state.clearNotice),
+        if (state.notice.isNotEmpty)
+          _NoticeBar(text: state.notice, onClose: state.clearNotice),
         Expanded(
           child: ended
               ? _ScenarioHome(state: state, onChoose: _chooseScenario)
@@ -96,18 +102,33 @@ class _ScenarioHome extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         const SizedBox(height: 24),
-        Text('Τι θέλεις να εξασκήσουμε;', style: Theme.of(context).textTheme.headlineSmall),
+        Text('Τι θέλεις να εξασκήσουμε;',
+            style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 8),
         const Text(
-          'Επίλεξε θέμα και η Mila θα ανοίξει τη συζήτηση με μια σχετική ερώτηση. Μετά θα σε ακούει συνεχώς και θα απαντά φυσικά στις παύσεις σου. Πάτησε «Παύση ακρόασης» για προσωρινή παύση του μικροφώνου. Για άλλο θέμα, κλείσε τη συνομιλία από το εικονίδιο εξόδου.',
+          'Επίλεξε θέμα και η Mila θα ανοίξει τη συζήτηση με μια σχετική ερώτηση. Μετά θα σε ακούει συνεχώς και θα απαντά φυσικά στις παύσεις σου. Αν κλείσεις την εφαρμογή, μπορείς να συνεχίσεις την τελευταία συζήτηση όταν επιστρέψεις.',
         ),
         const SizedBox(height: 20),
+        if (state.hasSavedConversation)
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Συνέχισε τελευταία συζήτηση'),
+              subtitle: Text(state.savedScenarioTitle),
+              trailing: const Icon(Icons.play_arrow),
+              onTap: state.resumeLastConversation,
+            ),
+          ),
         for (final scenario in scenarios)
           Card(
             child: ListTile(
-              leading: Text(scenario.icon, style: const TextStyle(fontSize: 24)),
+              leading:
+                  Text(scenario.icon, style: const TextStyle(fontSize: 24)),
               title: Text(scenario.title),
-              subtitle: Text(scenario.id == 'custom' ? 'Φτιάξε δικό σου θέμα' : scenario.prompt),
+              subtitle: Text(scenario.id == 'custom'
+                  ? 'Φτιάξε δικό σου θέμα'
+                  : scenario.prompt),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => onChoose(scenario),
             ),
@@ -145,7 +166,8 @@ class _StatusBar extends StatelessWidget {
               constraints: const BoxConstraints(maxWidth: 140),
               child: Chip(
                 avatar: const Icon(Icons.theater_comedy, size: 18),
-                label: Text(state.scenario.title, overflow: TextOverflow.ellipsis),
+                label:
+                    Text(state.scenario.title, overflow: TextOverflow.ellipsis),
                 visualDensity: VisualDensity.compact,
               ),
             ),
@@ -208,9 +230,12 @@ class _MessageList extends StatelessWidget {
       itemBuilder: (context, index) {
         final message = messages[messages.length - 1 - index];
         return Column(
-          crossAxisAlignment: message.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: message.isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
-            MessageBubble(message: message, hideAi: hideAi, onSpeak: state.speak),
+            MessageBubble(
+                message: message, hideAi: hideAi, onSpeak: state.speak),
             if (message.analysis != null)
               CorrectionCard(analysis: message.analysis!, onSpeak: state.speak),
             if (message.words.isNotEmpty)
@@ -221,8 +246,11 @@ class _MessageList extends StatelessWidget {
                   children: [
                     for (final word in message.words)
                       ActionChip(
-                        label: Text(word.saved ? '✓ ${word.phrase}' : '＋ ${word.phrase} — ${word.meaning}'),
-                        onPressed: word.saved ? null : () => state.addVocab(word),
+                        label: Text(word.saved
+                            ? '✓ ${word.phrase}'
+                            : '＋ ${word.phrase} — ${word.meaning}'),
+                        onPressed:
+                            word.saved ? null : () => state.addVocab(word),
                       ),
                   ],
                 ),
@@ -235,7 +263,8 @@ class _MessageList extends StatelessWidget {
 }
 
 class _InputBar extends StatelessWidget {
-  const _InputBar({required this.controller, required this.state, required this.onSend});
+  const _InputBar(
+      {required this.controller, required this.state, required this.onSend});
 
   final TextEditingController controller;
   final AppState state;
@@ -282,13 +311,16 @@ class _InputBar extends StatelessWidget {
                         : talking
                             ? 'Παύση ακρόασης'
                             : 'Συνέχισε τη συνομιλία με το μικρόφωνο',
-                    onPressed: connecting || (!talking && value.text.trim().isNotEmpty)
-                        ? null
-                        : state.toggleTalk,
+                    onPressed:
+                        connecting || (!talking && value.text.trim().isNotEmpty)
+                            ? null
+                            : state.toggleTalk,
                     style: talking
                         ? IconButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.errorContainer,
-                            foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
+                            backgroundColor:
+                                Theme.of(context).colorScheme.errorContainer,
+                            foregroundColor:
+                                Theme.of(context).colorScheme.onErrorContainer,
                           )
                         : null,
                     icon: connecting
@@ -305,7 +337,9 @@ class _InputBar extends StatelessWidget {
                     builder: (context, value, _) => IconButton(
                       icon: const Icon(Icons.send),
                       tooltip: 'Αποστολή γραπτού μηνύματος',
-                      onPressed: canType && value.text.trim().isNotEmpty ? onSend : null,
+                      onPressed: canType && value.text.trim().isNotEmpty
+                          ? onSend
+                          : null,
                     ),
                   ),
               ],

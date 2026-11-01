@@ -14,18 +14,28 @@ class MilaApp extends StatefulWidget {
   State<MilaApp> createState() => _MilaAppState();
 }
 
-class _MilaAppState extends State<MilaApp> {
+class _MilaAppState extends State<MilaApp> with WidgetsBindingObserver {
   final AppState _state = AppState(StorageService());
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _state.load();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused &&
+        _state.talkState != TalkState.idle) {
+      _state.stopSession(preserveConversation: true);
+    }
+  }
+
+  @override
   void dispose() {
-    _state.stopSession();
+    WidgetsBinding.instance.removeObserver(this);
+    _state.stopSession(preserveConversation: true);
     _state.dispose();
     super.dispose();
   }
@@ -37,7 +47,8 @@ class _MilaAppState extends State<MilaApp> {
       builder: (context, _) => MaterialApp(
         title: 'mila',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(colorSchemeSeed: const Color(0xFF2D4FD6), useMaterial3: true),
+        theme: ThemeData(
+            colorSchemeSeed: const Color(0xFF2D4FD6), useMaterial3: true),
         darkTheme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF7894FF),
@@ -45,7 +56,8 @@ class _MilaAppState extends State<MilaApp> {
           ),
           useMaterial3: true,
         ),
-        themeMode: _state.data.settings.darkMode ? ThemeMode.dark : ThemeMode.light,
+        themeMode:
+            _state.data.settings.darkMode ? ThemeMode.dark : ThemeMode.light,
         home: RootPage(state: _state),
       ),
     );
@@ -83,7 +95,8 @@ class _RootPageState extends State<RootPage> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(9),
-                  child: Image.asset('assets/images/mila-logo.png', width: 32, height: 32),
+                  child: Image.asset('assets/images/mila-logo.png',
+                      width: 32, height: 32),
                 ),
                 const SizedBox(width: 10),
                 const Text('mila'),
@@ -109,9 +122,12 @@ class _RootPageState extends State<RootPage> {
             selectedIndex: _index,
             onDestinationSelected: (i) => setState(() => _index = i),
             destinations: const [
-              NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Συνομιλία'),
-              NavigationDestination(icon: Icon(Icons.error_outline), label: 'Λάθη'),
-              NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Λεξιλόγιο'),
+              NavigationDestination(
+                  icon: Icon(Icons.chat_bubble_outline), label: 'Συνομιλία'),
+              NavigationDestination(
+                  icon: Icon(Icons.error_outline), label: 'Λάθη'),
+              NavigationDestination(
+                  icon: Icon(Icons.menu_book_outlined), label: 'Λεξιλόγιο'),
             ],
           ),
         );

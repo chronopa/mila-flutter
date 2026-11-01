@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-
+import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+
+import '../models/chat_message.dart';
 
 const liveModel = 'models/gemini-3.8-live';
 const liveUrl =
@@ -38,12 +40,14 @@ class LiveSession {
     required this.apiKey,
     required this.voice,
     required this.systemPrompt,
+    this.restoreHistory = false,
     required this.events,
   });
 
   final String apiKey;
   final String voice;
   final String systemPrompt;
+  final bool restoreHistory;
   final LiveEvents events;
 
   final AudioRecorder _recorder = AudioRecorder();
@@ -92,6 +96,8 @@ class LiveSession {
         },
         'inputAudioTranscription': {},
         'outputAudioTranscription': {},
+        if (restoreHistory)
+          'historyConfig': {'initialHistoryInClientContent': true},
         // Keep the mic stream open; let the Live API detect individual speech
         // turns during natural pauses instead of batching the whole recording.
         'realtimeInputConfig': {
@@ -133,6 +139,26 @@ class LiveSession {
     });
   }
 
+  /// Restores transcript context without asking the model to answer yet.
+  void sendHistory(List<ChatMessage> messages) {
+    if (messages.isEmpty) return;
+    _send({
+      'clientContent': {
+        'turns': [
+          for (final message in messages)
+            if (message.text.trim().isNotEmpty)
+              {
+                'role': message.role == 'assistant' ? 'model' : 'user',
+                'parts': [
+                  {'text': message.text.trim()}
+                ],
+              }
+        ],
+        'turnComplete': false,
+      },
+    });
+  }
+
   Future<void> close() async {
     _closed = true;
     _talking = false;
@@ -154,14 +180,50 @@ class LiveSession {
     if (_micStarted || _closed) return;
     try {
       if (!await _recorder.hasPermission()) {
-        events.onError('Δεν έχω άδεια μικροφώνου');
+        events.onError(
+            'Δεν υπάρχει άδεια μικροφώνου. Ενεργοποίησέ την από Ρυθμίσεις iPhone > Απόρρητο και ασφάλεια > Μικρόφωνο και ξεκίνα ξανά τη συνομιλία.');
         return;
       }
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        final audioSession = await AudioSession.instance;
+        await audioSession.configure(
+          AudioSessionConfiguration(
+            avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+            avAudioSessionCategoryOptions:
+                AVAudioSessionCategoryOptions.defaultToSpeaker |
+                    AVAudioSessionCategoryOptions.allowBluetooth,
+            avAudioSessionMode: AVAudioSessionMode.voiceChat,
+          ),
+        );
+        await audioSession.setActive(true);
+      }
       final stream = await _recorder.startStream(
-        const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1),
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: 16000,
+          numChannels: 1,
+          autoGain: true,
+          echoCancel: true,
+          iosConfig: IosRecordConfig(
+            categoryOptions: [
+              IosAudioCategoryOption.defaultToSpeaker,
+              IosAudioCategoryOption.allowBluetooth,
+            ],
+          ),
+        ),
       );
       _micStarted = true;
-      _micSub = stream.listen(_onMic);
+      _micSub = stream.listen(
+        _onMic,
+        onError: (Object error) =>
+            events.onError('Το μικρόφωνο παρουσίασε σφάλμα: $error'),
+        onDone: () {
+          if (!_closed && _micStarted) {
+            events.onError(
+                'Η ροή του μικροφώνου σταμάτησε. Κλείσε και ξαναξεκίνα τη συνομιλία.');
+          }
+        },
+      );
     } catch (error) {
       events.onError('Το μικρόφωνο δεν ξεκίνησε: $error');
     }
@@ -171,7 +233,10 @@ class LiveSession {
     if (!_talking || _closed) return;
     _send({
       'realtimeInput': {
-        'audio': {'data': base64Encode(chunk), 'mimeType': 'audio/pcm;rate=16000'},
+        'audio': {
+          'data': base64Encode(chunk),
+          'mimeType': 'audio/pcm;rate=16000'
+        },
       },
     });
   }
@@ -197,10 +262,14 @@ class LiveSession {
     if (server['interrupted'] == true) events.onInterrupted();
 
     final input = server['inputTranscription'];
-    if (input is Map && input['text'] is String) events.onUserText(input['text'] as String);
+    if (input is Map && input['text'] is String) {
+      events.onUserText(input['text'] as String);
+    }
 
     final output = server['outputTranscription'];
-    if (output is Map && output['text'] is String) events.onAiText(output['text'] as String);
+    if (output is Map && output['text'] is String) {
+      events.onAiText(output['text'] as String);
+    }
 
     final turn = server['modelTurn'];
     if (turn is Map && turn['parts'] is List) {

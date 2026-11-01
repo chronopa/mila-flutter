@@ -17,6 +17,14 @@ class Analysis {
         .where((c) => c.said.isNotEmpty && c.better.isNotEmpty)
         .take(3)
         .toList();
-    return Analysis(corrections: corrections, natural: jsonString(j['natural_version']).trim());
+    return Analysis(
+        corrections: corrections,
+        natural: jsonString(j['natural_version']).trim());
   }
+
+  Map<String, dynamic> toJson() => {
+        'corrections':
+            corrections.map((correction) => correction.toJson()).toList(),
+        'natural_version': natural,
+      };
 }

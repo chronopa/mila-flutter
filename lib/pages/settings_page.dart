@@ -35,14 +35,10 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(update);
   }
 
-  void _snack(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
-  }
-
   void _save() {
     widget.state.data.settings = _draft;
     widget.state.saveSettings();
-    _snack('Οι ρυθμίσεις αποθηκεύτηκαν');
+    Navigator.of(context).pop();
   }
 
   @override
@@ -64,6 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
           const SizedBox(height: 8),
           TextField(
             controller: _key,
+            obscureText: true,
             decoration: const InputDecoration(
               labelText: 'Κλειδί Gemini',
               helperText: 'Από aistudio.google.com/apikey',
