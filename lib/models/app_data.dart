@@ -1,6 +1,5 @@
 import 'app_settings.dart';
 import 'mistake.dart';
-import 'session_record.dart';
 import 'vocab_item.dart';
 
 /// Όλα τα δεδομένα της εφαρμογής, όπως αποθηκεύονται.
@@ -9,21 +8,18 @@ class AppData {
     required this.settings,
     required this.mistakes,
     required this.vocab,
-    required this.sessions,
     required this.daily,
   });
 
   AppSettings settings;
   List<Mistake> mistakes;
   List<VocabItem> vocab;
-  List<SessionRecord> sessions;
   Map<String, int> daily; // ημέρα -> πόσες φράσεις είπες
 
   factory AppData.empty() => AppData(
         settings: AppSettings(),
         mistakes: [],
         vocab: [],
-        sessions: [],
         daily: {},
       );
 
@@ -46,7 +42,6 @@ class AppData {
       settings: settingsJson is Map<String, dynamic> ? AppSettings.fromJson(settingsJson) : AppSettings(),
       mistakes: readList('mistakes', Mistake.fromJson),
       vocab: readList('vocab', VocabItem.fromJson),
-      sessions: readList('sessions', SessionRecord.fromJson),
       daily: daily,
     );
   }
@@ -55,7 +50,6 @@ class AppData {
         'settings': settings.toJson(),
         'mistakes': mistakes.map((m) => m.toJson()).toList(),
         'vocab': vocab.map((v) => v.toJson()).toList(),
-        'sessions': sessions.map((s) => s.toJson()).toList(),
         'daily': daily,
       };
 }

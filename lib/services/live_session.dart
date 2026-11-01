@@ -29,7 +29,7 @@ class LiveEvents {
   final void Function() onInterrupted;
   final void Function() onTurnComplete;
   final void Function(String message) onError;
-  final void Function() onClosed;
+  final void Function(String details) onClosed;
 }
 
 /// Ζωντανή σύνδεση με το Gemini Live: στέλνει τον ήχο του μικροφώνου και παίρνει πίσω φωνή και μεταγραφές.
@@ -62,7 +62,15 @@ class LiveSession {
       _onMessage,
       onError: (Object error) => events.onError('$error'),
       onDone: () {
-        if (!_closed) events.onClosed();
+        if (!_closed) {
+          final code = channel.closeCode;
+          final reason = channel.closeReason?.trim();
+          final details = [
+            if (code != null) 'κωδικός $code',
+            if (reason != null && reason.isNotEmpty) reason,
+          ].join(' — ');
+          events.onClosed(details);
+        }
       },
     );
     _send({
@@ -163,12 +171,12 @@ class LiveSession {
     });
   }
 
-  void _onMessage(dynamic raw) {
+  Future<void> _onMessage(dynamic raw) async {
     final text = raw is String ? raw : utf8.decode(raw as List<int>);
     final message = jsonDecode(text) as Map<String, dynamic>;
 
     if (message.containsKey('setupComplete')) {
-      unawaited(_startMic());
+      await _startMic();
       events.onReady();
       return;
     }

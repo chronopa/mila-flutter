@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -7,7 +6,6 @@ import '../models/analysis.dart';
 import '../models/app_data.dart';
 import '../models/chat_message.dart';
 import '../models/mistake.dart';
-import '../models/session_record.dart';
 import '../models/vocab_item.dart';
 import '../models/word_suggestion.dart';
 import '../scenarios.dart';
@@ -31,8 +29,6 @@ class AppState extends ChangeNotifier {
   final List<ChatMessage> messages = [];
   TalkState talkState = TalkState.idle;
   String notice = '';
-  String sessionId = '';
-  String sessionTitle = '';
   Scenario scenario = scenarios.first;
   String customScenario = '';
 
@@ -94,8 +90,6 @@ class AppState extends ChangeNotifier {
     scenario = chosen ?? scenario;
     customScenario = custom;
     messages.clear();
-    sessionId = DateTime.now().millisecondsSinceEpoch.toString();
-    sessionTitle = scenario.id == 'custom' && custom.isNotEmpty ? custom : scenario.title;
     talkState = TalkState.connecting;
     notice = '';
     notifyListeners();
@@ -112,7 +106,7 @@ class AppState extends ChangeNotifier {
         onInterrupted: () => unawaited(_player.stop()),
         onTurnComplete: () => unawaited(_finishAiTurn()),
         onError: (message) => _setNotice('Σφάλμα: $message'),
-        onClosed: () => _onClosed(),
+        onClosed: _onClosed,
       ),
     );
     _live = live;
@@ -124,9 +118,8 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Τελειώνει τη συνεδρία και σώζει τη συνομιλία.
+  /// Τελειώνει την τρέχουσα συνεδρία.
   void stopSession() {
-    _archive();
     final live = _live;
     _live = null;
     if (live != null) unawaited(live.close());
@@ -150,12 +143,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _onClosed() {
+  void _onClosed(String details) {
     if (_live == null) return; // έκλεισε από εμάς
     _live = null;
-    _archive();
     talkState = TalkState.idle;
-    _setNotice('Η σύνδεση έκλεισε. Πάτα το μικρόφωνο για νέα συνεδρία.');
+    final reason = details.isEmpty ? '' : ' ($details)';
+    _setNotice('Η σύνδεση έκλεισε$reason. Πάτα το μικρόφωνο για νέα συνεδρία.');
   }
 
   // ---------- μιλάς ----------
@@ -212,7 +205,6 @@ class AppState extends ChangeNotifier {
       return;
     }
     _countPhrase();
-    _archive();
     try {
       final analysis = await _analyze(msg.text.trim());
       msg.analysis = analysis;
@@ -225,7 +217,6 @@ class AppState extends ChangeNotifier {
       _setNotice('Οι διορθώσεις απέτυχαν: $error');
     }
     notifyListeners();
-    _archive();
   }
 
   /// Γραπτό μήνυμα μέσα στη συνεδρία.
@@ -239,7 +230,6 @@ class AppState extends ChangeNotifier {
     messages.add(msg);
     live.sendText(trimmed);
     _countPhrase();
-    _archive();
     notifyListeners();
     _analyze(trimmed).then((analysis) {
       msg.analysis = analysis;
@@ -290,7 +280,6 @@ class AppState extends ChangeNotifier {
     msg.text = msg.text.trim();
     notifyListeners();
     if (!hadAudio) unawaited(speak(msg.text));
-    _archive();
     await _suggestWords(msg);
   }
 
@@ -381,41 +370,4 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---------- συνομιλίες ----------
-
-  /// Σώζει τη τρέχουσα συνομιλία. Ενημερώνει την ήδη αποθηκευμένη, ώστε να μη διπλασιάζεται.
-  void _archive() {
-    final nonEmpty = messages.where((m) => m.text.trim().isNotEmpty).toList();
-    if (nonEmpty.isEmpty || sessionId.isEmpty) return;
-    final record = SessionRecord(
-      id: sessionId,
-      title: sessionTitle.isEmpty ? 'Συνομιλία' : sessionTitle,
-      messages: nonEmpty.map((m) => ChatMessage(role: m.role, text: m.text.trim())).toList(),
-    );
-    final index = data.sessions.indexWhere((s) => s.id == sessionId);
-    if (index >= 0) {
-      data.sessions[index] = record;
-    } else {
-      data.sessions.add(record);
-    }
-    if (data.sessions.length > 30) {
-      data.sessions = data.sessions.sublist(data.sessions.length - 30);
-    }
-    _save();
-  }
-
-  // ---------- αντίγραφο ασφαλείας ----------
-
-  String exportBackup() => jsonEncode(data.toJson());
-
-  bool importBackup(String text) {
-    try {
-      data = AppData.fromJson(jsonDecode(text) as Map<String, dynamic>);
-      _save();
-      notifyListeners();
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
 }

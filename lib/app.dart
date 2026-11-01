@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import 'pages/home_page.dart';
 import 'pages/mistakes_page.dart';
-import 'pages/sessions_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/vocab_page.dart';
 import 'services/app_state.dart';
@@ -104,7 +103,6 @@ class _RootPageState extends State<RootPage> {
               HomePage(state: _state),
               MistakesPage(state: _state),
               VocabPage(state: _state),
-              SessionsPage(state: _state),
             ],
           ),
           bottomNavigationBar: NavigationBar(
@@ -114,7 +112,6 @@ class _RootPageState extends State<RootPage> {
               NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Συνομιλία'),
               NavigationDestination(icon: Icon(Icons.error_outline), label: 'Λάθη'),
               NavigationDestination(icon: Icon(Icons.menu_book_outlined), label: 'Λεξιλόγιο'),
-              NavigationDestination(icon: Icon(Icons.history), label: 'Συνομιλίες'),
             ],
           ),
         );

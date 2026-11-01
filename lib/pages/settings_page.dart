@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import '../models/app_settings.dart';
 import '../services/app_state.dart';
 
 const _voices = ['Kore', 'Aoede', 'Leda', 'Zephyr', 'Puck', 'Charon', 'Fenrir'];
 
-/// Ρυθμίσεις: κλειδί, επίπεδο, φωνή, εστίαση διορθώσεων και αντίγραφο ασφαλείας.
+/// Ρυθμίσεις εφαρμογής.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key, required this.state});
 
@@ -16,6 +16,8 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  late final AppSettings _draft =
+      AppSettings.fromJson(widget.state.data.settings.toJson());
   late final TextEditingController _key =
       TextEditingController(text: widget.state.data.settings.geminiKey);
   late final TextEditingController _interests =
@@ -31,48 +33,21 @@ class _SettingsPageState extends State<SettingsPage> {
   /// Αλλάζει μια ρύθμιση, την ξαναζωγραφίζει και τη σώζει.
   void _change(VoidCallback update) {
     setState(update);
-    widget.state.saveSettings();
   }
 
   void _snack(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _restore() async {
-    final controller = TextEditingController();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Επαναφορά από αντίγραφο'),
-        content: TextField(
-          controller: controller,
-          maxLines: 6,
-          decoration: const InputDecoration(hintText: 'Επικόλλησε το αντίγραφο εδώ'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Άκυρο')),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Επαναφορά'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (text == null || text.trim().isEmpty) return;
-    final ok = widget.state.importBackup(text.trim());
-    if (ok) {
-      _key.text = widget.state.data.settings.geminiKey;
-      _interests.text = widget.state.data.settings.interests;
-      _snack('Η επαναφορά ολοκληρώθηκε');
-    } else {
-      _snack('Το αντίγραφο δεν είναι έγκυρο');
-    }
+  void _save() {
+    widget.state.data.settings = _draft;
+    widget.state.saveSettings();
+    _snack('Οι ρυθμίσεις αποθηκεύτηκαν');
   }
 
   @override
   Widget build(BuildContext context) {
-    final s = widget.state.data.settings;
+    final s = _draft;
     return Scaffold(
       appBar: AppBar(title: const Text('Ρυθμίσεις')),
       body: ListView(
@@ -188,24 +163,14 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) => _change(() => s.focusNatural = value),
           ),
           const Divider(),
-          const Text('Αντίγραφο ασφαλείας'),
           const SizedBox(height: 8),
-          const Text(
-            'Το αντίγραφο περιέχει και το κλειδί Gemini. Φύλαξέ το σε ασφαλές μέρος.',
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              FilledButton.tonal(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: widget.state.exportBackup()));
-                  _snack('Το αντίγραφο αντιγράφηκε');
-                },
-                child: const Text('Αντιγραφή'),
-              ),
-              OutlinedButton(onPressed: _restore, child: const Text('Επαναφορά')),
-            ],
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _save,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Αποθήκευση'),
+            ),
           ),
         ],
       ),
